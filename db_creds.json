@@ -1,0 +1,6 @@
+{
+    "CONFIG_DB_ODIBETS_PASSWORD": "root",
+    "CONFIG_DB_ODIBETS_USERNAME": "root",
+    "CONFIG_DB_WEB_HOST": "dev-db-mysql-service-cluster-ip"
+}
+  

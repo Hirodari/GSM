@@ -1,0 +1,172 @@
+https://external-secrets.io/latest/introduction/getting-started/
+
+Step 1: Enable Secret Manager API
+gcloud services enable secretmanager.googleapis.com
+
+Step 2: Create a Secret in Google Secret Manager
+gcloud secrets create cs_techplain_secret --replication-policy="automatic"
+gcloud secrets create db_creds --replication-policy="automatic" --project=techplain-hub
+
+or 
+gcloud secrets create cs_techplain_secret \
+  --replication-policy="user-managed" \
+  --locations="us-central1"
+
+
+Then, add a secret version or to the secret manager:
+
+create a json file with credentials allocated:
+db-creds.json
+
+{
+    "CONFIG_DB_ODIBETS_PASSWORD": "root",
+    "CONFIG_DB_ODIBETS_USERNAME": "root",
+    "CONFIG_DB_WEB_HOST": "dev-db-mysql-service-cluster-ip"
+}
+
+
+Step 3: Grant Kubernetes Service Account Access
+Get your GKE service account:
+gcloud iam service-accounts list
+
+Grant Secret Manager Access:
+gcloud projects add-iam-policy-binding techplain-hub \
+    --member="serviceAccount:kareco-test-cluster-gke-svc@techplain-hub.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+
+Step 4: Deploy External Secrets Operator(ESO)
+
+kubectl apply -f https://github.com/external-secrets/external-secrets/releases/download/v0.13.0/external-secrets.yaml
+or 
+helm repo add external-secrets https://charts.external-secrets.io
+
+helm install external-secrets \
+   external-secrets/external-secrets \
+    -n external-secrets \
+    --create-namespace \
+
+helm repo ls
+NAME            	URL                               
+external-secrets	https://charts.external-secrets.io
+
+
+helm ls -n external-secrets
+NAME            	NAMESPACE       	REVISION	UPDATED                                 	STATUS  	CHART                  	APP VERSION
+external-secrets	external-secrets	1       	2025-02-03 19:26:42.572776479 +0200 SAST	deployed	external-secrets-0.13.0	v0.13.0    
+
+
+Verify that the operator is running:
+kubectl get pods -n external-secrets
+
+Step 5: Configure External Secrets to Use Google Secret Manager
+
+Create a SecretStore to authenticate with GSM:
+kubectl create secret generic -n external-secrets gsm-key --from-file=sa_SecretManager.key=key.json
+
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore #ClusterSecretStore 
+metadata:
+  name: google-secret-store
+  namespace: odi-dev #external-secrets
+spec:
+  provider:
+    gcpsm:
+      projectID: techplain-hub
+      auth:
+        secretRef:
+          secretAccessKeySecretRef:
+            name: gsm-key #google-sa-key
+            key: sa_SecretManager.key #key.json
+            namespace: odi-dev
+
+Create an ExternalSecret that pulls secrets from GSM:
+
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: external-pull-db-creds
+  namespace: odi-dev #external-secrets  # adjust namespace if needed
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: google-secret-store  # Ensure this refers to your configured store
+    kind: SecretStore         # or ClusterSecretStore if that's what you're using
+  target:
+    name: database-creds      # The Kubernetes secret that will be created
+  data:
+    - secretKey: CONFIG_DB_ODIBETS_PASSWORD
+      remoteRef:
+        key: db_creds
+        property: CONFIG_DB_ODIBETS_PASSWORD
+    - secretKey: CONFIG_DB_ODIBETS_USERNAME
+      remoteRef:
+        key: db_creds
+        property: CONFIG_DB_ODIBETS_USERNAME
+    - secretKey: CONFIG_DB_WEB_HOST
+      remoteRef:
+        key: db_creds
+        property: CONFIG_DB_WEB_HOST
+
+Apply the manifests:
+kubectl apply -f cluster-secret-store.yaml
+kubectl apply -f external-secret.yaml
+
+
+Step 6: Use the Secret in Your Kubernetes Deployment
+Now, reference the secret in your Deployment:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+  namespace: external-secrets
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+      - name: my-container
+        image: alpine:latest
+        command: ["/bin/sh", "-c", "echo DB User: $CONFIG_DB_ODIBETS_USERNAME; echo DB Password: $CONFIG_DB_ODIBETS_PASSWORD; echo DB Host: $CONFIG_DB_WEB_HOST; sleep 3600"]
+        env:
+        - name: CONFIG_DB_ODIBETS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-creds
+              key: CONFIG_DB_ODIBETS_PASSWORD
+        - name: CONFIG_DB_ODIBETS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: database-creds
+              key: CONFIG_DB_ODIBETS_USERNAME
+        - name: CONFIG_DB_WEB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: database-creds
+              key: CONFIG_DB_WEB_HOST
+
+Step 7: Test If It Works
+kubectl exec -it <pod-name> -n my-namespace -- printenv | grep PASSWORD
+
+Pinpoint the service account used by nodes in the cluster 
+gcloud container clusters describe kareco-test-cluster --zone us-central1 --format="value(nodeConfig.serviceAccount)"
+
+SA: kareco-test-cluster-gke-svc@techplain-hub.iam.gserviceaccount.com
+
+gcloud iam service-accounts keys create key.json \
+    --iam-account=kareco-test-cluster-gke-svc@techplain-hub.iam.gserviceaccount.com
+
+
+kubectl create secret generic google-sa-key --from-file=key.json=key.json
+gcloud projects get-iam-policy techplain-hub --flatten="bindings[].members" --format="table(bindings.role)" --filter="bindings.members:kareco-test-cluster-gke-svc@techplain-hub.iam.gserviceaccount.com"
+
+kubectl describe clustersecretstore google-secret-store
+gcloud secrets versions list cs_techplain_secret --project=techplain-hub
+kubectl get secret database-creds -n odi-dev -o jsonpath="{.data.CONFIG_DB_WEB_HOST}" | base64 -d && echo
+
