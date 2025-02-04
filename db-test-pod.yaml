@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: my-app
-  namespace: external-secrets
+  namespace: odi-dev
 spec:
   replicas: 1
   selector:
@@ -17,19 +17,6 @@ spec:
       - name: my-container
         image: alpine:latest
         command: ["/bin/sh", "-c", "echo DB User: $CONFIG_DB_ODIBETS_USERNAME; echo DB Password: $CONFIG_DB_ODIBETS_PASSWORD; echo DB Host: $CONFIG_DB_WEB_HOST; sleep 3600"]
-        env:
-        - name: CONFIG_DB_ODIBETS_PASSWORD
-          valueFrom:
-            secretKeyRef:
+        envFrom:
+          - secretRef:
               name: database-creds
-              key: CONFIG_DB_ODIBETS_PASSWORD
-        - name: CONFIG_DB_ODIBETS_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: database-creds
-              key: CONFIG_DB_ODIBETS_USERNAME
-        - name: CONFIG_DB_WEB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: database-creds
-              key: CONFIG_DB_WEB_HOST
