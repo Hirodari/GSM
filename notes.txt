@@ -170,3 +170,5 @@ kubectl describe clustersecretstore google-secret-store
 gcloud secrets versions list cs_techplain_secret --project=techplain-hub
 kubectl get secret database-creds -n odi-dev -o jsonpath="{.data.CONFIG_DB_WEB_HOST}" | base64 -d && echo
 
+ tcp:3306, 6379, 9001, 10250
+udp:53 
