@@ -43,7 +43,7 @@ gcloud secrets create db_creds --replication-policy="automatic" --project=techpl
 Then add the JSON file as a secret version:
 
 ```bash
-gcloud secrets versions add db_creds --data-file=db-creds.json --project=techplain-hub
+gcloud secrets versions add db_creds --data-file=db_creds.json --project=techplain-hub
 ```
 
 ## Step 3: Grant Kubernetes Service Account Access to GSM

@@ -172,3 +172,19 @@ kubectl get secret database-creds -n odi-dev -o jsonpath="{.data.CONFIG_DB_WEB_H
 
  tcp:3306, 6379, 9001, 10250
 udp:53 
+
+This rule allows only internal required ports.
+Mysql: 3306 
+Redis: 6379
+Http:80 
+Https:443 
+DNS resolution: 53 for both TCP and UDP
+Kustomize-controller: 9090
+Gitops: 9001
+Kubernetes API: 10250
+Flux Kustomization: 8443
+
+3306,6379,9001,10250,53,9090,80,443,8443
+
+flux reconcile kustomization odi-flux-kustomize-deploy-dev --with-source
+flux get kustomization -n flux-system

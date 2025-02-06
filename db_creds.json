@@ -1,6 +1,15 @@
 {
     "CONFIG_DB_ODIBETS_PASSWORD": "root",
     "CONFIG_DB_ODIBETS_USERNAME": "root",
-    "CONFIG_DB_WEB_HOST": "dev-db-mysql-service-cluster-ip"
+    "CONFIG_DB_ODIBETS_HOST": "dev-db-mysql-service-cluster-ip",
+    "CONFIG_DB_ODIBETS_PORT": "3306",
+    "CONFIG_DB_WEB_HOST": "dev-db-mysql-service-cluster-ip",
+    "MYSQL_ROOT_PASSWORD": "root",
+    "DB_HOST": "dev-db-mysql-service-cluster-ip",
+    "DB_USER": "root",
+    "DB_PASS": "root",
+    "DB_PORT": "3306",
+    "REPO_URL": "git@github.com:Techplain-Ltd/odibets_dba_database.git",
+    "BRANCH": "master"
 }
   
